@@ -1,16 +1,16 @@
-
-function articles(publication, action) {
-	for (let article of publication) {
-		action(article)		
-	}
-}
-
 rss = {
 	read: async function read(url) {
-		fetch(url)
+		return await fetch(url)
 			.then(function(response) {
 				return response.json();
 			})
+	}
+}
+
+/*
+function articles(publication, action) {
+	for (let article of publication) {
+		action(article)		
 	}
 }
 
@@ -35,3 +35,4 @@ function render(template) {
 
 articles(rss.read(url), render(template))
 articles(rss.read(url2), render(template))
+*/

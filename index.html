@@ -1,8 +1,88 @@
-<section>
-	<articles data-from="https://news.ycombinator.com/rss">
-		<template slot="template">
-		</template>
-	</articles>
-	<!--<articles data-from="some-other-url">-->
-	<!--</articles>-->
-</section>
+<!doctype html>
+<html>
+    <head>
+        <meta charset="utf-8"/>
+        <script src="rss.js"></script>
+        <script>
+            class Articles extends HTMLElement {
+                constructor() {
+                    super();
+                }
+
+                async loadMetadata(url, article) {
+                    var domParser = new DOMParser()
+                    let response = await fetch("https://cors-anywhere.herokuapp.com/"+url, {
+                        mode: "cors",
+                        redirect: "error",
+                    })
+                    let article_html = await response.text()
+                    let article_dom = domParser.parseFromString(article_html, 'text/html')
+
+                    let desc = document.createElement('h2')
+                    desc.textContent = article_dom.querySelector("meta[property='og:description'").getAttribute("content")
+                    article.appendChild(desc)
+
+                    let img = document.createElement('img');
+                    img.src = article_dom.querySelector("meta[property='og:image'").getAttribute("content")
+                    article.appendChild(img)
+                }
+
+                async loadArticles(url) {
+                    let publication = "https://cors-anywhere.herokuapp.com/"+url 
+                    let response = await fetch(publication, {mode: "cors"})
+                    let txt = await response.text()
+                    var domParser = new DOMParser()
+                    // self.textContent = txt
+                    let doc = domParser.parseFromString(txt, 'text/xml')
+                    console.debug(doc)
+                    let items = doc.querySelectorAll('item')
+                    console.debug(items)
+                    for (let item of items) {
+                        let article = document.createElement('article');
+                        let title = document.createElement('h1');
+                        let link = document.createElement('a');
+                        link.href = item.querySelector("link").textContent;
+                        link.textContent = item.querySelector("title").textContent;
+                        link.target = "_blank";
+                        title.appendChild(link)
+                        article.appendChild(title)
+
+
+                        this.appendChild(article)
+                        this.loadMetadata(link.href, article)
+                    }
+                }
+                attributeChangedCallback(name, oldValue, newValue) {
+                    console.log(newValue)
+                    this.loadArticles(newValue)
+                }
+
+                static get observedAttributes() { return ['from']; }
+            }
+
+customElements.define('some-distractions', Articles);
+        </script>
+        <style>
+        </style>
+    </head>
+    <body>
+        <main>
+            <section>
+                <h1>Hacker News</h1>
+                <some-distractions from="https://news.ycombinator.com/rss">
+                </some-distractions>
+            </section>
+        </main>
+        <template>
+            <article>
+                <section>
+                    <img src=""></img>
+                </section> 
+                <section>
+                    <header></header>
+                    <p></p>
+                </section>
+            </article>
+        </template>
+    </body>
+</html>
