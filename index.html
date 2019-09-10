@@ -2,11 +2,31 @@
 <html>
     <head>
         <meta charset="utf-8"/>
-        <script src="rss.js"></script>
         <script>
-            class Articles extends HTMLElement {
+            function template(t, ...args) {
+                return new Function(args, "return `"+t+"`" );
+            }
+
+customElements.define('a-distraction', 
+            class extends HTMLElement {
+
+                static get observedAttributes() {
+                    return ['data-title', 'href'];
+                }
+
+                set href(val) {
+                    this.querySelector("article").textContent = val
+                }
+
                 constructor() {
                     super();
+                }
+
+                connectedCallback() {
+                    let template = document.getElementById("article");
+                    let templateContent = template.content;
+                    this.appendChild(templateContent.cloneNode(true))
+                    this.querySelector("h1").textContent = "test"
                 }
 
                 async loadMetadata(url, article) {
@@ -27,6 +47,27 @@
                     article.appendChild(img)
                 }
 
+                attributeChangedCallback(name, oldValue, newValue) {
+                    console.debug(arguments)
+                    this[name] = newValue
+                }
+            })
+
+customElements.define('some-distractions', 
+            class extends HTMLElement {
+                constructor() {
+                    super();
+
+                    console.log(this.attributes.from)
+                    /*
+                    let template = document.getElementById("distractions");
+                    let templateContent = template.content;
+                    const shadowRoot = this.attachShadow({mode: 'open'});
+                    shadowRoot.appendChild(templateContent.cloneNode(true));
+                    */
+                }
+
+
                 async loadArticles(url) {
                     let publication = "https://cors-anywhere.herokuapp.com/"+url 
                     let response = await fetch(publication, {mode: "cors"})
@@ -34,33 +75,32 @@
                     var domParser = new DOMParser()
                     // self.textContent = txt
                     let doc = domParser.parseFromString(txt, 'text/xml')
-                    console.debug(doc)
                     let items = doc.querySelectorAll('item')
-                    console.debug(items)
+                    return Array.from(items).map(function(item) {
+                        return {
+                            "uri": item.querySelector("link").textContent,
+                            "title": item.querySelector("title").textContent,
+                        };
+                    })
+                }
+
+                connectedCallback() {
+                    this.renderArticles(this.getAttribute("from"))
+                }
+
+                async renderArticles(url) {
+                    let article_template = this.querySelector("template[slot='article']")
+                    let article = article_template.innerHTML
+                    let format = template(article, "title", "uri")
+                    let items = await this.loadArticles(url)
                     for (let item of items) {
-                        let article = document.createElement('article');
-                        let title = document.createElement('h1');
-                        let link = document.createElement('a');
-                        link.href = item.querySelector("link").textContent;
-                        link.textContent = item.querySelector("title").textContent;
-                        link.target = "_blank";
-                        title.appendChild(link)
-                        article.appendChild(title)
-
-
-                        this.appendChild(article)
-                        this.loadMetadata(link.href, article)
+                        let d = document.createElement('div')
+                        d.innerHTML = format(item.title, item.uri)
+                        this.appendChild(d)
                     }
                 }
-                attributeChangedCallback(name, oldValue, newValue) {
-                    console.log(newValue)
-                    this.loadArticles(newValue)
-                }
+            })
 
-                static get observedAttributes() { return ['from']; }
-            }
-
-customElements.define('some-distractions', Articles);
         </script>
         <style>
         </style>
@@ -68,21 +108,17 @@ customElements.define('some-distractions', Articles);
     <body>
         <main>
             <section>
-                <h1>Hacker News</h1>
                 <some-distractions from="https://news.ycombinator.com/rss">
+                    <h1>Hacker News</h1>
+                    <template slot="article">
+                        <article>
+                            <h1><a href="${uri}" target="_blank">${title}</a></h1>
+                            <img data-src="img"></img>
+                            <p data-content="description"></p>
+                        </article>
+                    </template>
                 </some-distractions>
             </section>
         </main>
-        <template>
-            <article>
-                <section>
-                    <img src=""></img>
-                </section> 
-                <section>
-                    <header></header>
-                    <p></p>
-                </section>
-            </article>
-        </template>
     </body>
 </html>
