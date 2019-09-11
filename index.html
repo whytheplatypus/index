@@ -2,6 +2,7 @@
 <html>
     <head>
         <meta charset="utf-8"/>
+		<link rel="stylesheet" type="text/css" href="https://unpkg.com/augmented-ui/augmented.css">
         <script>
             function template(t, ...args) {
                 return new Function(args, "return `"+t+"`" );
@@ -11,11 +12,7 @@ customElements.define('a-distraction',
             class extends HTMLElement {
 
                 static get observedAttributes() {
-                    return ['data-title', 'href'];
-                }
-
-                set href(val) {
-                    this.querySelector("article").textContent = val
+                    return ['title', 'uri', 'img', 'description'];
                 }
 
                 constructor() {
@@ -23,13 +20,27 @@ customElements.define('a-distraction',
                 }
 
                 connectedCallback() {
-                    let template = document.getElementById("article");
-                    let templateContent = template.content;
-                    this.appendChild(templateContent.cloneNode(true))
-                    this.querySelector("h1").textContent = "test"
+                    let article = this.innerHTML
+                    this.format = template(article, ...this.constructor.observedAttributes)
+					this.loadMetadata(this.getAttribute('uri'))
+					this.render()
                 }
 
-                async loadMetadata(url, article) {
+				render() {
+					if (this.format) {
+                    	this.innerHTML = this.format(...this.getAttributes())
+					}
+				}
+
+				getAttributes() {
+					let attrs = []
+					for (let attr of this.constructor.observedAttributes) {
+						attrs.push(this.getAttribute(attr))
+					}
+					return attrs
+				}
+
+                async loadMetadata(url) {
                     var domParser = new DOMParser()
                     let response = await fetch("https://cors-anywhere.herokuapp.com/"+url, {
                         mode: "cors",
@@ -38,18 +49,12 @@ customElements.define('a-distraction',
                     let article_html = await response.text()
                     let article_dom = domParser.parseFromString(article_html, 'text/html')
 
-                    let desc = document.createElement('h2')
-                    desc.textContent = article_dom.querySelector("meta[property='og:description'").getAttribute("content")
-                    article.appendChild(desc)
-
-                    let img = document.createElement('img');
-                    img.src = article_dom.querySelector("meta[property='og:image'").getAttribute("content")
-                    article.appendChild(img)
+                    this.setAttribute("description", article_dom.querySelector("meta[property='og:description'").getAttribute("content"))
+                    this.setAttribute("img", article_dom.querySelector("meta[property='og:image'").getAttribute("content"))
                 }
 
                 attributeChangedCallback(name, oldValue, newValue) {
-                    console.debug(arguments)
-                    this[name] = newValue
+					this.render()
                 }
             })
 
@@ -57,14 +62,6 @@ customElements.define('some-distractions',
             class extends HTMLElement {
                 constructor() {
                     super();
-
-                    console.log(this.attributes.from)
-                    /*
-                    let template = document.getElementById("distractions");
-                    let templateContent = template.content;
-                    const shadowRoot = this.attachShadow({mode: 'open'});
-                    shadowRoot.appendChild(templateContent.cloneNode(true));
-                    */
                 }
 
 
@@ -90,34 +87,113 @@ customElements.define('some-distractions',
 
                 async renderArticles(url) {
                     let article_template = this.querySelector("template[slot='article']")
-                    let article = article_template.innerHTML
-                    let format = template(article, "title", "uri")
+                    let articleContent = article_template.content
                     let items = await this.loadArticles(url)
                     for (let item of items) {
-                        let d = document.createElement('div')
-                        d.innerHTML = format(item.title, item.uri)
-                        this.appendChild(d)
+						let articleNode = articleContent.cloneNode(true)
+						let article = articleNode.querySelector("a-distraction[data-src='item']")
+						for (let attr in item) {
+							article.setAttribute(attr, item[attr])
+						}
+                        this.append(articleNode)
                     }
                 }
             })
 
         </script>
         <style>
+			body {
+				background: #100c0c;
+			}
+			.demo {
+				margin: 10px;
+				--aug-border: 5px;
+				--aug-inset: 5px;
+				padding: 20px; /* mind the gap */
+				--aug-border-bg: #2D778A;
+				--aug-inset-bg: #BB925A;
+				--aug-b-width: 80%;
+				--aug-b-height: 7px;
+				--aug-tl-width: 10%;
+				--aug-tl-height: 7px;
+				--aug-tr-height: 7px;
+				--aug-tr-width: 10%;
+			}
+			h1.demo {
+				text-align: center;
+			}
+			header {
+				display: flex;
+				align-items: center;
+  				justify-content: center;
+			}
+			section {
+				flex: 0 1 0;
+				display: block;
+			}
+			some-distractions {
+				display: block;
+			}
+			article {
+				display: flex;
+				align-items: center;
+  				justify-content: center;
+			}
+			article > * {
+				padding: 10px;
+			}
+			.demo a {
+				color: #2D778A;
+			}
+			article > img{
+				flex: 0 0 256px;
+			}
+			.box {
+				flex: 1 1 0;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+  				justify-content: center;
+			}
         </style>
     </head>
     <body>
         <main>
             <section>
                 <some-distractions from="https://news.ycombinator.com/rss">
-                    <h1>Hacker News</h1>
+					<header class="demo" augmented-ui="tl-clip-x tr-clip-x br-clip bl-clip b-clip-x exe">
+                    	<h1>Hacker News</h1>
+					</header>
                     <template slot="article">
-                        <article>
-                            <h1><a href="${uri}" target="_blank">${title}</a></h1>
-                            <img data-src="img"></img>
-                            <p data-content="description"></p>
-                        </article>
+						<a-distraction data-src="item" >
+							<article class="demo" augmented-ui="tl-clip-x tr-clip-x br-clip bl-clip b-clip-x exe">
+								<img style="${(!img)?'display:none':''}" src="${img}"></img>
+								<div class="box">
+									<h1><a href="${uri}" target="_blank">${title}</a></h1>
+									<p>${(description)?description:""}</p>
+								</div>
+							</article>
+						</a-distraction>
                     </template>
                 </some-distractions>
+			</section>
+            <section>
+				<some-distractions from="https://www.npr.org/rss/rss.php?id=1001">
+					<header class="demo" augmented-ui="tl-clip-x tr-clip-x br-clip bl-clip b-clip-x exe">
+                    	<h1>NPR News</h1>
+					</header>
+                    <template slot="article">
+						<a-distraction data-src="item" >
+							<article class="demo" augmented-ui="tl-clip-x tr-clip-x br-clip bl-clip b-clip-x exe">
+								<img style="${(!img)?'display:none':''}" src="${img}"></img>
+								<div class="box">
+									<h1><a href="${uri}" target="_blank">${title}</a></h1>
+									<p>${(description)?description:""}</p>
+								</div>
+							</article>
+						</a-distraction>
+                    </template>
+				</some-distractions>
             </section>
         </main>
     </body>
