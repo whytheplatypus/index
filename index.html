@@ -2,63 +2,98 @@
 <html>
     <head>
         <meta charset="utf-8"/>
-		<link rel="stylesheet" type="text/css" href="https://unpkg.com/augmented-ui/augmented.css">
+        <style>
+			:root {
+				/* Special */
+				--background: #0f1011;
+				--accent: #2A5050;
+				--foreground: #e9dac9;
+				--link: #6C6A5C;
+			}
+			body {
+				background: var(--background);
+			}
+			ul {
+			  	list-style: none;
+			}
+
+			ul li::before {
+			  	content: "~ ";
+				color: var(--accent);
+			}
+
+			ul li:hover::before {
+			  	content: "~ [";
+				color: var(--accent);
+			}
+
+			ul li:hover::after {
+			  	content: "]";
+				color: var(--accent);
+			}
+
+
+			ul li {
+				padding: 3px;
+			}
+
+			a:link {
+				color: var(--link);
+			}
+
+			a:visited {
+				color: var(--foreground);
+			}
+
+			html, body, section, main {
+				height: 100%;
+			}
+			header {
+				color: var(--foreground);
+			}
+			main {
+				display: flex;
+  				justify-content: center;
+			}
+			section {
+				min-width: 345px;
+			}
+			some-distractions {
+				display: block;
+			}
+        </style>
+    </head>
+    <body>
+        <main>
+            <section>
+                <some-distractions from="https://news.ycombinator.com/rss">
+					<header>
+                    	<h1>Hacker News</h1>
+					</header>
+					<ul>
+                    <template slot="article">
+						<li><a href="${uri}">${title}</a></li>
+                    </template>
+					</ul>
+                </some-distractions>
+				<some-distractions from="https://www.npr.org/rss/rss.php?id=1001">
+					<header>
+                    	<h1>NPR</h1>
+					</header>
+					<ul>
+                    <template slot="article">
+						<li><a href="${uri}" target="_blank">${title}</a></li>
+                    </template>
+					</ul>
+                </some-distractions>
+			</section>
+        </main>
         <script>
             function template(t, ...args) {
                 return new Function(args, "return `"+t+"`" );
             }
 
-customElements.define('a-distraction', 
-            class extends HTMLElement {
-
-                static get observedAttributes() {
-                    return ['title', 'uri', 'img', 'description'];
-                }
-
-                constructor() {
-                    super();
-                }
-
-                connectedCallback() {
-                    let article = this.innerHTML
-                    this.format = template(article, ...this.constructor.observedAttributes)
-					this.loadMetadata(this.getAttribute('uri'))
-					this.render()
-                }
-
-				render() {
-					if (this.format) {
-                    	this.innerHTML = this.format(...this.getAttributes())
-					}
-				}
-
-				getAttributes() {
-					let attrs = []
-					for (let attr of this.constructor.observedAttributes) {
-						attrs.push(this.getAttribute(attr))
-					}
-					return attrs
-				}
-
-                async loadMetadata(url) {
-                    var domParser = new DOMParser()
-                    let response = await fetch("https://cors-anywhere.herokuapp.com/"+url, {
-                        mode: "cors",
-                        redirect: "error",
-                    })
-                    let article_html = await response.text()
-                    let article_dom = domParser.parseFromString(article_html, 'text/html')
-
-                    this.setAttribute("description", article_dom.querySelector("meta[property='og:description'").getAttribute("content"))
-                    this.setAttribute("img", article_dom.querySelector("meta[property='og:image'").getAttribute("content"))
-                }
-
-                attributeChangedCallback(name, oldValue, newValue) {
-					this.render()
-                }
-            })
-
-customElements.define('some-distractions', 
+			customElements.define('some-distractions', 
             class extends HTMLElement {
                 constructor() {
                     super();
@@ -87,121 +122,15 @@ customElements.define('some-distractions',
 
                 async renderArticles(url) {
                     let article_template = this.querySelector("template[slot='article']")
-                    let articleContent = article_template.content
+					console.debug(this, article_template)
                     let items = await this.loadArticles(url)
+                    let format = template(article_template.innerHTML, "title", "uri")
                     for (let item of items) {
-						let articleNode = articleContent.cloneNode(true)
-						let article = articleNode.querySelector("a-distraction[data-src='item']")
-						for (let attr in item) {
-							article.setAttribute(attr, item[attr])
-						}
-                        this.append(articleNode)
+                    	article_template.insertAdjacentHTML('afterend', format(item.title, item.uri))
                     }
                 }
             })
 
         </script>
-        <style>
-			body {
-				background: #100c0c;
-			}
-			html, body, section, main {
-				height: 100%;
-			}
-			.demo {
-				margin: 10px;
-				--aug-border: 5px;
-				--aug-inset: 5px;
-				padding: 20px; /* mind the gap */
-				--aug-border-bg: #2D778A;
-				--aug-inset-bg: #2D778A;
-				--aug-b-width: 80%;
-				--aug-b-height: 7px;
-				--aug-tl-width: 10%;
-				--aug-tl-height: 7px;
-				--aug-tr-height: 7px;
-				--aug-tr-width: 10%;
-			}
-			h1.demo {
-				text-align: center;
-			}
-			header {
-				display: flex;
-				align-items: center;
-  				justify-content: center;
-			}
-			section {
-				float: left;
-				width: 50%;
-				min-width: 345px;
-				overflow: scroll;
-				scrollbar-width: none;
-			}
-			some-distractions {
-				display: block;
-			}
-			article {
-				display: flex;
-				flex-flow: row wrap;
-				align-items: center;
-  				justify-content: center;
-			}
-			article > * {
-				padding: 10px;
-			}
-			.demo a {
-				color: black;
-			}
-			article > img{
-				flex: 0 0 256px;
-			}
-			.box {
-				flex: 1 1 auto;
-				display: flex;
-				flex-direction: column;
-				align-items: center;
-  				justify-content: center;
-			}
-        </style>
-    </head>
-    <body>
-        <main>
-            <section>
-                <some-distractions from="https://news.ycombinator.com/rss">
-					<header class="demo" augmented-ui="tl-clip-x tr-clip-x br-clip bl-clip b-clip-x exe">
-                    	<h1>Hacker News</h1>
-					</header>
-                    <template slot="article">
-						<a-distraction data-src="item" >
-							<article class="demo" augmented-ui="tl-clip-x tr-clip-x br-clip bl-clip b-clip-x exe">
-								<img style="${(!img)?'display:none':''}" src="${img}"></img>
-								<div class="box">
-									<h1><a href="${uri}" target="_blank">${title}</a></h1>
-									<p>${(description)?description:""}</p>
-								</div>
-							</article>
-						</a-distraction>
-                    </template>
-                </some-distractions>
-			</section>
-            <section>
-				<some-distractions from="https://www.npr.org/rss/rss.php?id=1001">
-					<header class="demo" augmented-ui="tl-clip-x tr-clip-x br-clip bl-clip b-clip-x exe">
-                    	<h1>NPR News</h1>
-					</header>
-                    <template slot="article">
-						<a-distraction data-src="item" >
-							<article class="demo" augmented-ui="tl-clip-x tr-clip-x br-clip bl-clip b-clip-x exe">
-								<img style="${(!img)?'display:none':''}" src="${img}"></img>
-								<div class="box">
-									<h1><a href="${uri}" target="_blank">${title}</a></h1>
-									<p>${(description)?description:""}</p>
-								</div>
-							</article>
-						</a-distraction>
-                    </template>
-				</some-distractions>
-            </section>
-        </main>
     </body>
 </html>
